@@ -1,4 +1,3 @@
-
 use std::fmt;
 
 /// Ролі користувачів.
@@ -74,10 +73,7 @@ pub fn has_permission(role: Role, permission: Permission) -> bool {
 }
 
 /// Перевірка доступу до захищеної операції.
-pub fn authorize(
-    role: Option<Role>,
-    permission: Permission,
-) -> Result<(), AuthorizationError> {
+pub fn authorize(role: Option<Role>, permission: Permission) -> Result<(), AuthorizationError> {
     let role = role.ok_or(AuthorizationError::Unauthenticated)?;
 
     if has_permission(role, permission) {
@@ -120,10 +116,7 @@ mod tests {
         ));
 
         assert!(!has_permission(Role::Operator, Permission::MintTokens));
-        assert!(!has_permission(
-            Role::Operator,
-            Permission::SignTransaction
-        ));
+        assert!(!has_permission(Role::Operator, Permission::SignTransaction));
     }
 
     #[test]
@@ -133,10 +126,7 @@ mod tests {
         assert!(!has_permission(Role::Viewer, Permission::GenerateKeys));
         assert!(!has_permission(Role::Viewer, Permission::CreateMint));
         assert!(!has_permission(Role::Viewer, Permission::MintTokens));
-        assert!(!has_permission(
-            Role::Viewer,
-            Permission::SignTransaction
-        ));
+        assert!(!has_permission(Role::Viewer, Permission::SignTransaction));
     }
 
     #[test]

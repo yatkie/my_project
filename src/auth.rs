@@ -1,4 +1,3 @@
-
 use bcrypt::{hash, verify};
 use std::error::Error;
 
@@ -14,10 +13,7 @@ pub fn hash_password(password: &str) -> Result<String, Box<dyn Error>> {
 }
 
 /// Перевірка пароля за збереженим хешем.
-pub fn verify_password(
-    password: &str,
-    password_hash: &str,
-) -> Result<bool, Box<dyn Error>> {
+pub fn verify_password(password: &str, password_hash: &str) -> Result<bool, Box<dyn Error>> {
     if password.is_empty() || password.len() > 72 {
         return Ok(false);
     }
