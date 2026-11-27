@@ -1,0 +1,33 @@
+# Rust build files
+/target/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Credentials
+users.json
+credentials.json
+secrets.json
+
+# Private keys
+*.pem
+*.key
+keypair.json
+id.json
+
+# Backup files
+main_backup.txt
+*.bak
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
