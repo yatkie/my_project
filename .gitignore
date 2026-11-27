@@ -31,3 +31,7 @@ main_backup.txt
 
 # Temporary files
 *.tmp
+# AES encrypted data
+*.enc
+/secrets/
+
