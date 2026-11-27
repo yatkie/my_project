@@ -52,10 +52,10 @@ pub fn encrypt_to_file(
     let mut output = nonce;
     output.extend_from_slice(&ciphertext);
 
-    if let Some(parent) = path.parent() {
-        if !parent.as_os_str().is_empty() {
-            fs::create_dir_all(parent)?;
-        }
+    if let Some(parent) = path.parent()
+        && !parent.as_os_str().is_empty()
+    {
+        fs::create_dir_all(parent)?;
     }
 
     fs::write(path, output)?;
