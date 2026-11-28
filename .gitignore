@@ -48,3 +48,5 @@ main_backup.txt
 
 # Application logs
 /logs/
+# Backup archives
+/backups/
