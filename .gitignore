@@ -18,6 +18,7 @@ secrets.json
 
 # Private keys
 *.pem
+!keys/public_key.pem
 *.key
 keypair.json
 id.json
@@ -31,7 +32,13 @@ main_backup.txt
 
 # Temporary files
 *.tmp
+
 # AES encrypted data
 *.enc
 /secrets/
 
+# RSA keys - private key must never be committed
+/keys/private_key.pem
+
+# Modified license used for tampering tests
+/license_modified.json

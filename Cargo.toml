@@ -20,3 +20,6 @@ spl-associated-token-account = "8.0"
 bcrypt = "0.19.3"
 aes-gcm = "0.10"
 hex = "0.4"
+rsa = { version = "0.9", features = ["sha2"] }
+sha2 = "0.10"
+signature = "2"

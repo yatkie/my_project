@@ -1,0 +1,13 @@
+﻿{
+  "product_id": "SolanaTokenManager",
+ "license_id": "STM-2026-0001",
+"owner": "Кондратюк Ярослав",
+ "expiry_date": "2027-12-31",
+  "features": [
+   "authentication",
+   "access_control",
+"wallet_management",
+"token_creation",
+"encrypted_key_storage"
+ ]
+}

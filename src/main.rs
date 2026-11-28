@@ -1,7 +1,8 @@
-﻿mod access_control;
+mod access_control;
 mod auth;
 mod crypto;
 mod key_storage;
+mod license;
 
 use access_control::{Permission, Role, authorize};
 use solana_client::rpc_client::RpcClient;
@@ -98,6 +99,21 @@ fn require_permission(role: Role, permission: Permission) -> Result<(), Box<dyn 
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Перевірка цифрового підпису ліцензії.
+    println!("=== License verification ===");
+
+    let license_valid = license::verify_license(
+        Path::new("license.json"),
+        Path::new("license.sig"),
+        Path::new("keys/public_key.pem"),
+    )?;
+
+    if !license_valid {
+        eprintln!("License verification failed. Access denied.");
+        return Ok(());
+    }
+
+    println!("License verified successfully.");
     // Окрема команда для створення хешу пароля.
     if env::args().nth(1).as_deref() == Some("hash-password") {
         return generate_password_hash();
