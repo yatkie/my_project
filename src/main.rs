@@ -3,6 +3,7 @@ mod auth;
 mod crypto;
 mod key_storage;
 mod license;
+mod logger;
 
 use access_control::{Permission, Role, authorize};
 use solana_client::rpc_client::RpcClient;
@@ -17,6 +18,8 @@ use spl_associated_token_account::{
 };
 use spl_token::instruction::{initialize_mint, mint_to};
 use std::{env, error::Error, path::Path};
+
+use tracing::{error, info, warn};
 
 const SOLANA_RPC_URL: &str = "https://api.devnet.solana.com";
 
@@ -38,12 +41,12 @@ fn load_or_create_keypair(
     path: &Path,
 ) -> Result<Keypair, Box<dyn Error>> {
     if path.exists() {
-        println!("Loading encrypted keypair: {}", path.display());
+        info!(path = %path.display(), "Loading encrypted keypair");
 
         return key_storage::load_keypair(encryption_key, path);
     }
 
-    println!("Generating a new Solana keypair.");
+    info!(path = %path.display(), "Generating new Solana keypair");
 
     let keypair = Keypair::new();
 
@@ -53,7 +56,7 @@ fn load_or_create_keypair(
 
     key_storage::save_keypair(&keypair, encryption_key, path)?;
 
-    println!("Encrypted keypair saved: {}", path.display());
+    info!(path = %path.display(), "Encrypted keypair saved");
 
     Ok(keypair)
 }
@@ -65,23 +68,36 @@ fn authenticate() -> Result<bool, Box<dyn Error>> {
 
     println!("=== Authentication ===");
 
+    info!("Authentication process started");
+
     for attempt in 1..=3 {
         let password = rpassword::prompt_password("Enter password: ")?;
 
         if auth::verify_password(&password, &password_hash)? {
+            info!("User authentication successful");
             println!("Authentication successful.");
             return Ok(true);
         }
 
+        warn!(
+            attempt = attempt,
+            attempts_remaining = 3 - attempt,
+            "Authentication failed"
+        );
+
         println!("Incorrect password. Attempts remaining: {}", 3 - attempt);
     }
 
+    error!("Access denied after 3 failed attempts");
     println!("Access denied.");
+
     Ok(false)
 }
 
 // Генерація bcrypt-хешу пароля.
 fn generate_password_hash() -> Result<(), Box<dyn Error>> {
+    info!("Password hash generation started");
+
     let password = rpassword::prompt_password("Enter new password: ")?;
 
     let password_hash = auth::hash_password(&password)?;
@@ -89,18 +105,42 @@ fn generate_password_hash() -> Result<(), Box<dyn Error>> {
     println!("Generated password hash:");
     println!("{}", password_hash);
 
+    info!("Password hash generated successfully");
+
     Ok(())
 }
 
 // Перевірка прав користувача.
 fn require_permission(role: Role, permission: Permission) -> Result<(), Box<dyn Error>> {
-    authorize(Some(role), permission)?;
+    authorize(Some(role), permission).map_err(|err| {
+        warn!(
+            role = ?role,
+            permission = ?permission,
+            "Access permission denied"
+        );
+
+        Box::<dyn Error>::from(err)
+    })?;
+
+    info!(
+        role = ?role,
+        permission = ?permission,
+        "Access permission granted"
+    );
+
     Ok(())
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    // Ініціалізація системи логування.
+    let _guard = logger::init_logger()?;
+
+    info!("Application started");
+
     // Перевірка цифрового підпису ліцензії.
     println!("=== License verification ===");
+
+    info!("License verification started");
 
     let license_valid = license::verify_license(
         Path::new("license.json"),
@@ -109,20 +149,33 @@ fn main() -> Result<(), Box<dyn Error>> {
     )?;
 
     if !license_valid {
+        error!("License verification failed. Access denied.");
         eprintln!("License verification failed. Access denied.");
         return Ok(());
     }
 
+    info!("License verified successfully");
     println!("License verified successfully.");
+
     // Окрема команда для створення хешу пароля.
     if env::args().nth(1).as_deref() == Some("hash-password") {
-        return generate_password_hash();
+        info!("Password hash command selected");
+
+        let result = generate_password_hash();
+
+        if let Err(ref err) = result {
+            error!(error = %err, "Password hash generation failed");
+        }
+
+        info!("Application finished");
+        return result;
     }
 
     println!("=== SolanaTokenManager ===");
 
     // 1. Авторизація.
     if !authenticate()? {
+        warn!("Application stopped: authentication failed");
         return Ok(());
     }
 
@@ -132,19 +185,26 @@ fn main() -> Result<(), Box<dyn Error>> {
     let role =
         Role::parse(&role_value).ok_or("Invalid APP_ROLE. Use admin, operator or viewer.")?;
 
+    info!(role = ?role, "User role identified");
     println!("User role: {:?}", role);
 
     // 3. Перевірка прав доступу.
     require_permission(role, Permission::ViewInfo)?;
+
+    info!("Access granted");
     println!("Access granted.");
 
     // 4. Підключення до Solana Devnet.
+    info!("Connecting to Solana Devnet");
+
     let client = RpcClient::new(SOLANA_RPC_URL.to_string());
 
     // 5. Отримання ключа шифрування.
     require_permission(role, Permission::GenerateKeys)?;
 
     let encryption_key = encryption_key_from_env()?;
+
+    info!("Encryption key loaded from environment");
 
     // 6. Завантаження або створення гаманців.
     let payer = load_or_create_keypair(&encryption_key, Path::new("secrets/payer.enc"))?;
@@ -156,7 +216,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Wallet: {}", payer.pubkey());
     println!("Mint: {}", mint.pubkey());
 
+    info!("Wallets loaded successfully");
+
     // 7. Отримання мінімальної суми для rent exemption.
+    info!("Requesting minimum balance for rent exemption");
+
     let rent = client.get_minimum_balance_for_rent_exemption(spl_token::state::Mint::LEN)?;
 
     // 8. Створення Mint Account.
@@ -170,6 +234,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         &spl_token::ID,
     );
 
+    info!("Mint account creation instruction prepared");
+
     // 9. Ініціалізація Mint.
     require_permission(role, Permission::InitializeMint)?;
 
@@ -180,6 +246,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         None,
         decimals,
     )?;
+
+    info!("Mint initialization instruction prepared");
 
     // 10. Отримання Associated Token Account.
     let owner_account = get_associated_token_address(&payer.pubkey(), &mint.pubkey());
@@ -194,6 +262,8 @@ fn main() -> Result<(), Box<dyn Error>> {
         &spl_token::ID,
     );
 
+    info!("Token account creation instruction prepared");
+
     // 12. Підготовка випуску токенів.
     require_permission(role, Permission::MintTokens)?;
 
@@ -206,7 +276,11 @@ fn main() -> Result<(), Box<dyn Error>> {
         1_000_000_000,
     )?;
 
+    info!("Token minting instruction prepared");
+
     // 13. Отримання останнього Blockhash.
+    info!("Requesting latest Solana blockhash");
+
     let blockhash = client.get_latest_blockhash()?;
 
     // 14. Формування підписаної транзакції.
@@ -219,10 +293,17 @@ fn main() -> Result<(), Box<dyn Error>> {
         blockhash,
     );
 
+    info!(
+        signatures = transaction.signatures.len(),
+        "Transaction prepared successfully"
+    );
+
     println!("Transaction prepared successfully.");
     println!("Token account: {}", owner_account);
     println!("Signatures: {}", transaction.signatures.len());
 
     // Транзакція поки не відправляється в мережу.
+    info!("Application finished successfully");
+
     Ok(())
 }

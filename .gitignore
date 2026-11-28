@@ -45,3 +45,6 @@ main_backup.txt
 
 # Lab 9 temporary executable files
 /lab9/*.exe
+
+# Application logs
+/logs/
