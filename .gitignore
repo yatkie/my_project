@@ -42,3 +42,6 @@ main_backup.txt
 
 # Modified license used for tampering tests
 /license_modified.json
+
+# Lab 9 temporary executable files
+/lab9/*.exe
